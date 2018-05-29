@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <annotationProcessing>
+      <profile name="Maven default annotation processors profile" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <module name="sofademo-biz-service-impl" />
+        <module name="sofademo-biz-shared" />
+        <module name="sofademo-common-dal" />
+        <module name="sofademo-common-service-facade" />
+        <module name="sofademo-common-service-integration" />
+        <module name="sofademo-common-util" />
+        <module name="sofademo-core-model" />
+        <module name="sofademo-core-service" />
+        <module name="sofademo-test" />
+        <module name="sofademo-web-home" />
+      </profile>
+    </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="sofademo-biz-service-impl" target="1.8" />
+      <module name="sofademo-biz-shared" target="1.8" />
+      <module name="sofademo-common-dal" target="1.8" />
+      <module name="sofademo-common-service-facade" target="1.6" />
+      <module name="sofademo-common-service-integration" target="1.8" />
+      <module name="sofademo-common-util" target="1.8" />
+      <module name="sofademo-core-model" target="1.8" />
+      <module name="sofademo-core-service" target="1.8" />
+      <module name="sofademo-test" target="1.8" />
+      <module name="sofademo-web-home" target="1.8" />
+      <module name="t1" target="1.8" />
+    </bytecodeTargetLevel>
+  </component>
+</project>
