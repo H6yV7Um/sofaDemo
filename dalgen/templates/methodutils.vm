@@ -1,0 +1,423 @@
+package ${table.getUtilsPackage()};
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.List;
+import com.iwallet.biz.common.util.PageList;
+import javax.crypto.Cipher;
+
+import com.alibaba.common.logging.Logger;
+import com.alibaba.common.logging.LoggerFactory;
+import org.codehaus.xfire.util.Base64;
+import com.alibaba.common.lang.StringUtil;
+
+import com.alipay.kmi.common.service.client.KmiClient;
+import com.alipay.kmi.common.service.result.KmiResult;
+
+import com.alipay.kmi.common.service.crypto.CalculateMacUtil;
+import com.alipay.kmi.common.service.crypto.SymmtricCryptoUtil;
+import java.security.GeneralSecurityException;
+
+/**
+ * 加解密公共方法类
+ * 该类中包括缓存及加解密的公共方法
+ */
+public class ${table.getUtilClassName()} {
+
+    /** 普通日志 */
+    public static final Logger        logger = LoggerFactory.getLogger(${table.getUtilClassName()}.class);
+    //定义机密性及完整性缓存
+	static Map<Integer,KmiResult> hashMapInteg = new HashMap<Integer, KmiResult>();
+	static Map<Integer,KmiResult> hashMapConf = new HashMap<Integer, KmiResult>();
+			
+	public static final String appName = "${plugin.getAppName()}";
+    public static final String encodeKeyName = "${table.getTableConfig().getEncodekeyname()}";
+    public static final String abstractKeyName = "${table.getTableConfig().getAbstractkeyname()}";
+			
+	public KmiClient kmiClient = null;
+	
+	#if(${table.getTableConfig().bConfidentiality()} == true)   
+     /**
+     * KMI处取密钥--机密性
+     * @param keyName:密钥别名
+     * @param appName:应用系统名
+     * @param version：版本号
+     * @return KmiResult
+	 * 方法说明一：当客户端缓存清空情况下，首次进行insert操作，会进行hashMapConf.get(0)的判断，此时会以version=0去KMI处取最新的
+	 *          密钥kmiResultForInsert，并以key=0,value=kmiResultForInsert存在缓存当中。当缓存清空后，首次进行非insert操作，则
+	 *          此时参数version一定不是0 ，那么也会进行取最新密钥kmiResultForInsert的过程，然后判断知version != 0，所以会从kmi处
+	 *          取该version所对应的kmiresult，并且存储在缓存中。也就是说，当缓存清空后，首次进行insert之后，缓存中只有最新密钥信息；
+	 *          首次进行select操作之后，缓存中既有最新密钥信息，也有select所对应version的密钥信息。
+	 * ======= 
+	 * 方法说明二：当客户端缓存非空情况下，进行insert操作时，hashMapConf.get(0)!=null，则会判断version=0，所以返回hashMapConf.get(0);
+	 *           进行非insert操作时，直接走hashMapConf.get(finalversion)的逻辑，当缓存中有时，从缓存取数据，否则从kmi处取数据。
+     */
+   public KmiResult getKmiResultConf(String keyName,String appName,int version) {
+	   
+	   int finalversion = version;
+	   KmiResult kmiResultForInsert = null;
+	   KmiResult kmiResult = null;
+	   
+	   
+	   if (hashMapConf.get(0) == null) {
+	     kmiResultForInsert = kmiClient.getKey(keyName,appName,0);
+		 //判断取得的密钥信息是否正常
+		 if (!kmiResultForInsert.isSuccess()) {
+		    logger.warn("获取的kmiResult失败");
+			throw new RuntimeException("从KMI处获取密钥失败，请检查具体原因");
+		 }
+		 hashMapConf.put(0,kmiResultForInsert);
+	   }
+	   
+	   if (version == 0) {
+		  return hashMapConf.get(0);
+		}
+		else {
+
+	   if (hashMapConf.get(finalversion) != null) {
+		   kmiResult = hashMapConf.get(finalversion);
+		   return kmiResult;
+	   }
+    	//kmi处取密钥 
+    	kmiResult = kmiClient.getKey(keyName,appName,finalversion);
+        //判断取得的密钥信息是否正常
+		if (!kmiResult.isSuccess()) {
+		    logger.warn("获取的kmiResult失败");
+			throw new RuntimeException("从KMI处获取密钥失败，请检查具体原因");
+		 }
+		 
+		hashMapConf.put(kmiResult.getVersion(), kmiResult);
+		
+		return kmiResult;
+		}
+    }
+#end
+#if(${table.getTableConfig().bIntegrity()} == true)	  
+   /**
+    * KMI处取密钥--完整性
+    * @param keyName:密钥别名
+    * @param appName:应用系统名
+    * @param version：版本号
+    * @return KmiResult
+	* 方法说明一：当客户端缓存清空情况下，首次进行insert操作，会进行hashMapInteg.get(0)的判断，此时会以version=0去KMI处取最新的
+	 *          密钥kmiResultForInsert，并以key=0,value=kmiResultForInsert存在缓存当中。当缓存清空后，首次进行非insert操作，则
+	 *          此时参数version一定不是0 ，那么也会进行取最新密钥kmiResultForInsert的过程，然后判断知version != 0，所以会从kmi处
+	 *          取该version所对应的kmiresult，并且存储在缓存中。也就是说，当缓存清空后，首次进行insert之后，缓存中只有最新密钥信息；
+	 *          首次进行select操作之后，缓存中既有最新密钥信息，也有select所对应version的密钥信息。
+	 * ======= 
+	 * 方法说明二：当客户端缓存非空情况下，进行insert操作时，hashMapInteg.get(0)!=null，则会判断version=0，所以返回hashMapInteg.get(0);
+	 *           进行非insert操作时，直接走hashMapInteg.get(finalversion)的逻辑，当缓存中有时，从缓存取数据，否则从kmi处取数据。
+    */
+  public KmiResult getKmiResultInteg(String keyName,String appName,int version) {
+ 
+	    int finalversion = version;
+		KmiResult kmiResultForInsert = null;
+	    KmiResult kmiResult = null;
+		
+	  if (hashMapInteg.get(0) == null) {
+	     kmiResultForInsert = kmiClient.getKey(keyName,appName,0);
+		 //判断取得的密钥信息是否正常
+		 if (kmiResultForInsert.isSuccess() == false) {
+		    logger.warn("获取的kmiResult失败");
+			throw new RuntimeException("从KMI处获取密钥失败，请检查具体原因");
+		 }
+		 hashMapInteg.put(0,kmiResultForInsert);
+	   }
+	    if (version == 0) {
+		  return hashMapInteg.get(0);
+		}
+		else {
+   	
+	    if (hashMapInteg.get(finalversion) != null) {
+			 kmiResult = hashMapInteg.get(finalversion);
+			 return kmiResult;
+		   }
+   	     //kmi处取密钥 
+   	    kmiResult = kmiClient.getKey(keyName,appName,finalversion);
+		//判断取得的密钥信息是否正常
+		if (kmiResult.isSuccess() == false) {
+		    logger.warn("获取的kmiResult失败");
+			throw new RuntimeException("从KMI处获取密钥失败，请检查具体原因");
+		 }
+		
+		hashMapInteg.put(kmiResult.getVersion(), kmiResult);
+
+		return kmiResult;
+       }
+     }
+#end
+
+#if(${table.getTableConfig().bIntegrity()} == true)		
+	/**
+     * 完整性校验
+     * @param opDO
+     */
+	 public void compareInteg(${table.getQualifiedDOClassName()} opDO){
+	    
+	     //完整性校验时，首先从数据库中取出要校验的摘要值
+		 String retInteg = opDO.get$!{method2_getInteg}();
+		 
+		  if (retInteg == null || retInteg.length() == 0) {
+			 logger.warn("数据库中该摘要字段为空,无法进行校验");
+			 return;
+		 }
+		 //从数据库中取出的字段里截取keyname
+		 int keynameStart = StringUtil.indexOfAny(retInteg,"@");
+		 int versionStart = StringUtil.indexOfAny(retInteg,"#");
+		 String keyname = StringUtil.substring(retInteg, keynameStart+1,versionStart);
+		 int versionValue = Integer.parseInt(StringUtil.substring(retInteg, versionStart + 1, retInteg.length()));
+	      //获得做完整性校验的字段
+		 String integ = opDO.get$!{finalI}();
+		 if (integ == null || integ.length() ==0) {
+		     logger.warn("要做完整性字段为空");
+			 return;
+		 }
+		 //对取出来的数据再做一次完整性保护
+		 //取密钥
+		 KmiResult keyResult = getKmiResultInteg(keyname,appName,versionValue);
+		 //将该密钥进行Base64解码
+		  byte[] bytes = Base64.decode(keyResult.getKeyData()); 
+		 //把做完整性保护的字段转化为字符
+          byte[] integBytes = integ.getBytes();
+          //完整性保护
+		  byte[] cipherBytes = null;
+		  String abstractValue = null;
+           try {
+		       cipherBytes = CalculateMacUtil.calMac(integBytes,bytes,"HmacSHA256");
+			   //对生成摘要的部分进行base64编码
+			   abstractValue = Base64.encode(cipherBytes);
+		   }
+            catch (GeneralSecurityException e) {
+			     logger.error("加密出现异常");
+				 throw new RuntimeException("完整性校验加密出错",e);
+			}
+			if (abstractValue == null || abstractValue.length() == 0) {
+			   logger.warn("校验完整性时，数据生成为空，无法进行校验");
+			   return;
+			}
+			 //获得数据库中摘要字段的摘要值
+			 String retSql = StringUtil.substring(retInteg,0,keynameStart);
+             if (abstractValue.equals(retSql)) {
+			  logger.warn("数据正常");
+			 }	
+              else 
+               logger.warn("摘要字段数据对比不正常，请处理");
+	 }
+#end
+
+#if(${table.getTableConfig().bIntegrity()} == true)	
+	/**
+     * 更新操作获得数值的完整性保护方法
+     * @param name
+     * @param param
+     */
+	public void getIntegResultForUpdate(String ${table.getTableConfig().getIntegrity()}, Map param) {
+		String integValue = (String)param.get(${table.getTableConfig().getIntegrity()});
+		if (integValue != null || integValue.length()!=0) {
+		 //对该值生成摘要==============
+		 //kmi处取密钥 
+	    KmiResult keyresult2 = getKmiResultInteg(abstractKeyName,appName,0);
+		//从kmi处取得的密钥是Base64的密文，故解密
+		byte[] keyBytes = Base64.decode(keyresult2.getKeyData());
+		//将要加密的字段转化为byte
+		byte[] confBytes = integValue.getBytes();
+		byte[] cipherBytes = null;
+		String abstractValue = null;
+		//加密
+		try {
+			cipherBytes = CalculateMacUtil.calMac(confBytes, keyBytes, "HmacSHA256");
+			//对摘要字段进行Base64编码
+		    abstractValue = Base64.encode(cipherBytes);
+		} catch (GeneralSecurityException e) {
+			logger.error("加密出现异常");
+			throw new RuntimeException("更新数据时完整性摘要生成出错",e);
+		}
+		
+        StringBuffer sb = new StringBuffer();
+		//存储的加密字段为密文@version
+		String abstractFinalValue = sb.append(abstractValue).append("@").append(abstractKeyName).append("#").append(keyresult2.getVersion()).toString();
+		param.put("$!{integForUpdate}",abstractFinalValue);		
+	}
+	else
+	  logger.warn("要更新字段数值为空，请校验");
+	} 
+#end
+
+#if(${table.getTableConfig().bConfidentiality()} == true)
+    /**
+     * 更新操作时机密性保护方法
+     * @param id
+     * @param param
+     */
+	public void getConfResultForUpdate(String ${table.getTableConfig().getConfidentiality()}, Map param) {
+
+		String confValue = (String)param.get(${table.getTableConfig().getConfidentiality()});
+		if (confValue != null || confValue.length()!=0) {
+		//对该值进行加密==========
+		//kmi处取密钥 
+	    KmiResult keyresult = getKmiResultConf(encodeKeyName,appName,0);
+		//从kmi处取得的密钥是Base64的密文，故解密
+		byte[] keyBytes = Base64.decode(keyresult.getKeyData());
+		//将要加密的字段转化为byte
+		byte[] confBytes = confValue.getBytes();
+		byte[] cipherBytes = null;
+		String encodedValue = null;
+		//加密
+		try {
+			cipherBytes = SymmtricCryptoUtil.symmtricCrypto(confBytes, keyBytes, "AES", Cipher.ENCRYPT_MODE);
+			//对加密数据进行Base64编码
+		    encodedValue = Base64.encode(cipherBytes);
+		} catch (GeneralSecurityException e) {
+			logger.error("加密出现异常");
+			throw new RuntimeException("更新数据时机密性加密出错",e);
+		}
+		
+		StringBuffer sb = new StringBuffer();
+		//存储的加密字段为密文@version
+		String finalValue = sb.append(encodedValue).append("@").append(encodeKeyName).append("#").append(keyresult.getVersion()).toString();
+		param.put("$!{confForUpdate}",finalValue);
+		}
+			else 
+		   logger.warn("要更新字段数值为空，请校验");
+		}
+	
+#end
+
+#if(${table.getTableConfig().bIntegrity()} == true)	
+        /**
+        * 分页操作的完整性校验方法
+        * @param tempValue
+        */
+	    public void checkIntegForPaging(List<${table.getQualifiedDOClassName()}> tempValue,${table.getQualifiedDOClassName()} opDO) {
+			
+		   for (int i = 0 ; i < tempValue.size(); i++) {
+			
+    		 opDO = tempValue.get(i);
+    		 //获得数据库中的完整性字段,取keyname和version
+    		 String integ = opDO.get$!{method2_getInteg}();
+			 //待做完整性校验的输入数值
+			 String retInteg = opDO.get$!{finalI}();
+    		 if (integ != null && integ.length() != 0) {
+    		    int keynameStart = StringUtil.indexOfAny(integ,"@");
+			    int versionStart = StringUtil.indexOfAny(integ,"#");
+			    String keyname = StringUtil.substring(integ,keynameStart+1,versionStart);
+			    int versionFromDB = Integer.parseInt(StringUtil.substring(integ,versionStart+1,integ.length()));
+    		    //取密钥
+    		    KmiResult keyData = getKmiResultInteg(keyname,appName,versionFromDB);
+    		    //将该密钥进行Base64解码
+    		    byte[] bytes = Base64.decode(keyData.getKeyData()); 
+    		    //把做完整性保护的字段转化为字符
+                byte[] integBytes = retInteg.getBytes();
+                //完整性保护
+    		    byte[] cipherBytes = null;
+    		    String abstractEncoded = null;
+                try {
+    		        cipherBytes = CalculateMacUtil.calMac(integBytes,bytes,"HmacSHA256");
+    			    abstractEncoded = Base64.encode(cipherBytes);
+    		    }
+                 catch (GeneralSecurityException e) {
+    			      logger.error("加密出现异常");
+    				  throw new RuntimeException("分页操作时数据完整性加密出错",e);
+    		    }
+			 //取出数据库中的摘要部分
+			 String abstractValue = StringUtil.substring(integ,0,keynameStart-1);
+             if (abstractEncoded.equals(abstractValue)) {
+			    logger.warn("数据正常");
+			 }	
+             else 
+                logger.warn("摘要字段数据对比不正常，请处理");	
+		    }
+			else {
+			   logger.warn("数据库中该摘要字段为空，无法进行校验，请确认");
+			   }
+		}
+		}
+#end	
+
+#if(${table.getTableConfig().bConfidentiality()} == true)
+      /**
+       * 分页操作时获得机密性解密结果
+       * @param pageList
+       * @param tempValue
+       * @return
+       */
+	 public PageList getConfResultForPaging(PageList pageList,
+			List<${table.getQualifiedDOClassName()}> tempValue,${table.getQualifiedDOClassName()} opDO) {
+		//对于机密性和完整性，由于算法不同，所以分开考虑，下面是机密性解密部分
+		for (int i = 0 ; i < tempValue.size(); i++) {
+		    opDO = tempValue.get(i);         
+		  //获得被保护的机密性字段
+		  String conf = opDO.get$!{method_getConf}();
+		  if (conf != null && conf.length() != 0) {
+		  //取得加密字段值
+		  int encodeStart = StringUtil.indexOfAny(conf,"@");
+		  int versionStart = StringUtil.indexOfAny(conf,"#");
+		  String tempEncodeValue = StringUtil.substring(conf,0,encodeStart);
+		   //将要解密的密文进行Base64解码
+		  byte[] encodeValueBytes = Base64.decode(tempEncodeValue);
+		  String keyname = StringUtil.substring(conf,encodeStart+1,versionStart);
+		  int versionFromDB = Integer.parseInt(StringUtil.substring(conf,versionStart + 1,conf.length()));
+		  //对取出来的机密性字段做解密=====
+		  //取密钥
+		  KmiResult keyData = getKmiResultConf(keyname,appName,versionFromDB);
+		  //将该字段进行Base64解码
+		  byte[] bytes = Base64.decode(keyData.getKeyData()); 
+		  //解密
+		  byte[] resultBytes = null;
+		  String bytesToString = null;
+		  try {
+			resultBytes = SymmtricCryptoUtil.symmtricCrypto(encodeValueBytes, bytes, "AES", Cipher.DECRYPT_MODE);
+			//将解密后的数据转换为String类型
+		    bytesToString = new String(resultBytes);
+		  } catch (GeneralSecurityException e) {
+			logger.error("解密错误");
+			 throw new RuntimeException("分页操作时数据机密性加密出错",e);
+		  }
+		 
+		  opDO.set${finalRet}(bytesToString);
+		  
+		  //加入pageList
+		  pageList.add(opDO);
+          }
+		  else {
+		     logger.warn("数据库中该机密性字段为空");
+			 pageList.add(opDO);
+		   }
+		   }
+		  return pageList;
+		  }
+#end
+#if(${table.getTableConfig().bConfidentiality()} == true)
+      public String getConfEncodedResult(String conf) {
+          //取得加密字段值
+		  int encodeStart = StringUtil.indexOfAny(conf,"@");
+		  int versionStart = StringUtil.indexOfAny(conf,"#");
+		  String tempEncodeValue = StringUtil.substring(conf,0,encodeStart);
+		  //将要解密的密文进行Base64解码
+		  byte[] encodeValueBytes = Base64.decode(tempEncodeValue);
+		  String keyname = StringUtil.substring(conf,encodeStart+1,versionStart);
+		  int versionFromDB = Integer.parseInt(StringUtil.substring(conf,versionStart + 1,conf.length()));
+		  //对取出来的机密性字段做解密=====
+		  //取密钥
+		  KmiResult keyData = getKmiResultConf(keyname,appName,versionFromDB);
+		  //将该字段进行Base64解码
+		  byte[] bytes = Base64.decode(keyData.getKeyData()); 
+		  //解密
+		  byte[] resultBytes = null;
+		  String bytesToString = null;
+		  try {
+			resultBytes = SymmtricCryptoUtil.symmtricCrypto(encodeValueBytes, bytes, "AES", Cipher.DECRYPT_MODE);
+			//将解密后的数据转换为String类型
+		    bytesToString = new String(resultBytes);
+		  } catch (GeneralSecurityException e) {
+			logger.error("解密错误");
+			throw new RuntimeException("数据机密性解密出错",e);
+		  }
+		  return bytesToString;
+	   }	  
+#end
+	 public void setKmiClient(KmiClient kmiClient) {
+		this.kmiClient = kmiClient;
+	}
+
+}

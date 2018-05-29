@@ -1,0 +1,2 @@
+Module-Name: com.alipay.sofademo.core.model
+Spring-Parent: com.alipay.sofademo.common.dal

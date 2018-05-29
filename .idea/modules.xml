@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/app/biz/service-impl/sofademo-biz-service-impl.iml" filepath="$PROJECT_DIR$/app/biz/service-impl/sofademo-biz-service-impl.iml" />
+      <module fileurl="file://$PROJECT_DIR$/app/biz/shared/sofademo-biz-shared.iml" filepath="$PROJECT_DIR$/app/biz/shared/sofademo-biz-shared.iml" />
+      <module fileurl="file://$PROJECT_DIR$/app/common/dal/sofademo-common-dal.iml" filepath="$PROJECT_DIR$/app/common/dal/sofademo-common-dal.iml" />
+      <module fileurl="file://$PROJECT_DIR$/app/common/service/facade/sofademo-common-service-facade.iml" filepath="$PROJECT_DIR$/app/common/service/facade/sofademo-common-service-facade.iml" />
+      <module fileurl="file://$PROJECT_DIR$/app/common/service/integration/sofademo-common-service-integration.iml" filepath="$PROJECT_DIR$/app/common/service/integration/sofademo-common-service-integration.iml" />
+      <module fileurl="file://$PROJECT_DIR$/app/common/util/sofademo-common-util.iml" filepath="$PROJECT_DIR$/app/common/util/sofademo-common-util.iml" />
+      <module fileurl="file://$PROJECT_DIR$/app/core/model/sofademo-core-model.iml" filepath="$PROJECT_DIR$/app/core/model/sofademo-core-model.iml" />
+      <module fileurl="file://$PROJECT_DIR$/app/core/service/sofademo-core-service.iml" filepath="$PROJECT_DIR$/app/core/service/sofademo-core-service.iml" />
+      <module fileurl="file://$PROJECT_DIR$/app/test/sofademo-test.iml" filepath="$PROJECT_DIR$/app/test/sofademo-test.iml" />
+      <module fileurl="file://$PROJECT_DIR$/app/web/home/sofademo-web-home.iml" filepath="$PROJECT_DIR$/app/web/home/sofademo-web-home.iml" />
+      <module fileurl="file://$PROJECT_DIR$/t1.iml" filepath="$PROJECT_DIR$/t1.iml" />
+    </modules>
+  </component>
+</project>
